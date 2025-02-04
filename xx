@@ -1,0 +1,57 @@
+!nvidia-smi
+
+import os
+HOME = os.getcwd()
+print(HOME)
+
+
+!pip install ultralytics==8.0.196
+
+from IPython import display
+display.clear_output()
+
+import ultralytics
+ultralytics.checks()
+
+from ultralytics import YOLO
+
+from IPython.display import display, Image
+
+!mkdir {HOME}/datasets
+%cd {HOME}/datasets
+
+!pip install roboflow --quiet
+
+from roboflow import Roboflow
+rf = Roboflow(api_key="UQnFpBCELBlpiXPLTN9U")
+project = rf.workspace("ws-zxlpp").project("eye-disease-detection-1nbzj")
+version = project.version(3)
+dataset = version.download("yolov8")
+
+%cd {HOME}
+
+!yolo task=detect mode=train model=yolov8s.pt data={dataset.location}/data.yaml epochs=50 imgsz=320 plots=True
+
+!ls {HOME}/runs/detect/train2/
+
+%cd {HOME}
+Image(filename=f'{HOME}/runs/detect/train2/confusion_matrix.png', width=600)
+
+%cd {HOME}
+Image(filename=f'{HOME}/runs/detect/train2/results.png', width=600)
+
+%cd {HOME}
+Image(filename=f'{HOME}/runs/detect/train2/val_batch0_pred.jpg', width=600)
+
+## Validate Custom Model
+
+%cd {HOME}
+
+!yolo task=detect mode=val model={HOME}/runs/detect/train2/weights/best.pt data={dataset.location}/data.yaml
+
+## Inference with Custom Model
+
+%cd {HOME}
+!yolo task=detect mode=predict model={HOME}/runs/detect/train2/weights/best.pt conf=0.25 source={dataset.location}/test/images save=True
+
+**NOTE:** Let's take a look at few results.
