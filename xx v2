@@ -1,0 +1,74 @@
+import os
+import subprocess
+from IPython import display
+from ultralytics import YOLO
+from roboflow import Roboflow
+
+# Set home directory
+HOME = os.getcwd()
+print("Home Directory:", HOME)
+
+# Install required packages
+subprocess.run(["pip", "install", "ultralytics==8.0.196"])
+subprocess.run(["pip", "install", "roboflow", "--quiet"])
+
+# Clear output
+display.clear_output()
+
+# Check ultralytics installation
+import ultralytics
+ultralytics.checks()
+
+# Create datasets directory
+os.makedirs(f"{HOME}/datasets", exist_ok=True)
+os.chdir(f"{HOME}/datasets")
+
+# Initialize Roboflow and download dataset
+rf = Roboflow(api_key="UQnFpBCELBlpiXPLTN9U")
+project = rf.workspace("ws-zxlpp").project("eye-disease-detection-1nbzj")
+version = project.version(3)
+dataset = version.download("yolov8")
+
+# Change back to home directory
+os.chdir(HOME)
+
+# Train YOLOv8 model
+subprocess.run([
+    "yolo", "task=detect", "mode=train", "model=yolov8s.pt", 
+    f"data={dataset.location}/data.yaml", "epochs=50", "imgsz=320", "plots=True"
+])
+
+# List training results
+train_results_dir = f"{HOME}/runs/detect/train2"
+print("Training results:", os.listdir(train_results_dir))
+
+# Display confusion matrix
+confusion_matrix_path = f"{train_results_dir}/confusion_matrix.png"
+if os.path.exists(confusion_matrix_path):
+    display.Image(filename=confusion_matrix_path, width=600)
+
+# Display results
+results_path = f"{train_results_dir}/results.png"
+if os.path.exists(results_path):
+    display.Image(filename=results_path, width=600)
+
+# Display validation predictions
+val_pred_path = f"{train_results_dir}/val_batch0_pred.jpg"
+if os.path.exists(val_pred_path):
+    display.Image(filename=val_pred_path, width=600)
+
+# Validate custom model
+subprocess.run([
+    "yolo", "task=detect", "mode=val", 
+    f"model={train_results_dir}/weights/best.pt", 
+    f"data={dataset.location}/data.yaml"
+])
+
+# Inference with custom model
+subprocess.run([
+    "yolo", "task=detect", "mode=predict", 
+    f"model={train_results_dir}/weights/best.pt", 
+    "conf=0.25", f"source={dataset.location}/test/images", "save=True"
+])
+
+# NOTE: Let's take a look at few results.
